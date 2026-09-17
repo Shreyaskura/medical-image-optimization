@@ -10,3 +10,4 @@ env/
 
 # Excel temporary files
 ~$*.xlsx
+*.class
