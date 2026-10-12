@@ -1,0 +1,6 @@
+# Ignore server and non-web files so Vercel treats this as a pure static site
+server.js
+MCMOptimizer.java
+MCMOptimizer.class
+*.xlsx
+*.pptx

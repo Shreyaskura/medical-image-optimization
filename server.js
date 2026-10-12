@@ -51,9 +51,13 @@ const server = http.createServer((req, res) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`==================================================`);
-  console.log(`  Medical Image Optimization Platform Running!`);
-  console.log(`  Local URL: http://localhost:${PORT}`);
-  console.log(`==================================================`);
-});
+if (require.main === module) {
+  server.listen(PORT, () => {
+    console.log(`==================================================`);
+    console.log(`  Medical Image Optimization Platform Running!`);
+    console.log(`  Local URL: http://localhost:${PORT}`);
+    console.log(`==================================================`);
+  });
+}
+
+module.exports = server;
