@@ -19,7 +19,7 @@ const MIME_TYPES = {
   '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 };
 
-const server = http.createServer((req, res) => {
+function handler(req, res) {
   let reqUrl = decodeURI(req.url.split('?')[0]);
   if (reqUrl === '/') reqUrl = '/index.html';
 
@@ -49,7 +49,9 @@ const server = http.createServer((req, res) => {
     const stream = fs.createReadStream(safePath);
     stream.pipe(res);
   });
-});
+}
+
+const server = http.createServer(handler);
 
 if (require.main === module) {
   server.listen(PORT, () => {
@@ -60,4 +62,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = server;
+module.exports = handler;
