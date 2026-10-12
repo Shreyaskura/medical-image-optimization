@@ -1,0 +1,19 @@
+{
+  "name": "medical-image-optimization-frontend",
+  "version": "1.0.0",
+  "description": "Interactive Web Frontend for Medical Image Optimization Using Matrix Chain Multiplication (MCM) & Edmonds-Karp Network Flow",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "matrix-chain-multiplication",
+    "dynamic-programming",
+    "medical-imaging",
+    "edmonds-karp",
+    "network-flow"
+  ],
+  "author": "DSA Project Team",
+  "license": "MIT"
+}

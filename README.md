@@ -84,11 +84,28 @@ project.
 
 - `MRI/` - 50 MRI images
 - `XRay/` - 50 X-Ray images
-- `generate_excel.py` - Converts images into matrices and creates Excel data
-- `mcm_optimizer.py` - Performs MCM optimization
+- `index.html` - Interactive web dashboard frontend
+- `styles.css` - Modern dark-mode cyber-medical styling
+- `app.js` - Dynamic programming visualizer, matrix heatmap & network flow logic
+- `server.js` - Zero-dependency local Node.js web server
+- `MCMOptimizer.java` - Java implementation with DP & Edmonds-Karp
 - `Medical_Image_Matrices.xlsx` - Image matrix data
 - `Medical_Image_Matrices_MCM.xlsx` - MCM optimization results
 - `README.md` - Project documentation
+
+## Running the Web Frontend
+
+You can launch the web frontend using Node.js:
+
+```bash
+npm start
+```
+or
+```bash
+node server.js
+```
+
+Then open your browser to **http://localhost:3000** (or directly open `index.html` in any modern web browser).
 
 ## Team
 

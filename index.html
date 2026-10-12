@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Medical Image Optimization | Matrix Chain Multiplication & Network Flow</title>
+  <meta name="description" content="Interactive medical image processing optimization platform using Matrix Chain Multiplication (Interval Dynamic Programming) and Edmonds-Karp Network Flow.">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <!-- Navigation Bar -->
+  <nav class="navbar" id="top-nav">
+    <div class="nav-brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <div class="brand-title">MedMatrix Optima</div>
+        <div class="brand-subtitle">MCM & Network Flow Accelerator</div>
+      </div>
+    </div>
+    
+    <ul class="nav-links">
+      <li><a href="#processor" class="nav-link active">Image Preprocessor</a></li>
+      <li><a href="#matrix-chain" class="nav-link">Matrix Chain</a></li>
+      <li><a href="#dp-section" class="nav-link">Interval DP (CO3)</a></li>
+      <li><a href="#comparison" class="nav-link">Cost Analytics</a></li>
+      <li><a href="#network-flow" class="nav-link">Network Flow (CO4)</a></li>
+      <li><a href="#dataset" class="nav-link">Dataset (100 Scans)</a></li>
+    </ul>
+
+    <div class="nav-status">
+      <span class="status-dot"></span>
+      <span>DP Kernel Active</span>
+    </div>
+  </nav>
+
+  <!-- Hero & Quick Stats Section -->
+  <header class="hero">
+    <div class="hero-header">
+      <div class="hero-text">
+        <h1>Medical Image Optimization <br><span class="gradient-text">Matrix Chain Multiplication DP</span></h1>
+        <p>
+          Transforming clinical MRI and X-Ray scan matrices through Interval Dynamic Programming 
+          and Edmonds-Karp Network Flow to achieve a <strong>69.05% reduction in computational scalar multiplications</strong>.
+        </p>
+      </div>
+      <div class="hero-badges">
+        <span class="badge badge-blue">CO1 Problem Classification</span>
+        <span class="badge badge-purple">CO3 Interval Dynamic Programming</span>
+        <span class="badge badge-green">CO4 Edmonds-Karp Max Flow</span>
+        <span class="badge badge-cyan">O(n³) Time Complexity</span>
+      </div>
+    </div>
+
+    <!-- Quick Stats Cards -->
+    <div class="stats-grid">
+      <div class="stat-card" style="--stat-color: var(--accent-cyan);">
+        <div class="stat-label">Dataset Images</div>
+        <div class="stat-value">100 <span class="stat-delta">Scans</span></div>
+        <div class="stat-desc">50 MRI Scans + 50 Chest X-Rays</div>
+      </div>
+
+      <div class="stat-card" style="--stat-color: var(--accent-rose);">
+        <div class="stat-label">Conventional Left-to-Right Cost</div>
+        <div class="stat-value">21,504 <span class="cost-unit">mults</span></div>
+        <div class="stat-desc">((A₁ × A₂) × A₃) × A₄ Unoptimized</div>
+      </div>
+
+      <div class="stat-card" style="--stat-color: var(--accent-teal);">
+        <div class="stat-label">Optimized MCM Cost</div>
+        <div class="stat-value">6,656 <span class="stat-delta">-69.05%</span></div>
+        <div class="stat-desc">(A₁ × (A₂ × (A₃ × A₄))) Dynamic Programming</div>
+      </div>
+
+      <div class="stat-card" style="--stat-color: var(--accent-purple);">
+        <div class="stat-label">Scalar Multiplications Saved</div>
+        <div class="stat-value">14,848 <span class="cost-unit">ops</span></div>
+        <div class="stat-desc">Max Processing Flow: 16 Units (CO4)</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container -->
+  <main class="container">
+
+    <!-- ========================================================
+         SECTION 1: Medical Image Preprocessor & 32x32 Heatmap
+         ======================================================== -->
+    <section id="processor" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">01</span>
+          Medical Image Preprocessing & 32 × 32 Matrix Generation
+        </h2>
+        <div class="panel-actions">
+          <label class="btn btn-secondary btn-sm" for="custom-image-upload">
+            📁 Upload Custom Scan
+          </label>
+          <input type="file" id="custom-image-upload" accept="image/*" style="display: none;">
+        </div>
+      </div>
+      <p class="section-desc">
+        Clinical scans are normalized, converted to grayscale, and downsampled to 32 × 32 matrix representations (Matrix A₁) for algebraic transformation.
+      </p>
+
+      <div class="grid-2col">
+        <!-- Image Visualizer Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Medical Scan Inspector</span>
+            <div class="controls-bar" style="margin-bottom: 0;">
+              <select id="modality-select" class="select-styled">
+                <option value="MRI">Modality: MRI Scans</option>
+                <option value="XRay">Modality: X-Ray Scans</option>
+              </select>
+              <select id="scan-select" class="select-styled" style="max-width: 190px;">
+                <!-- Dynamically populated -->
+              </select>
+            </div>
+          </div>
+
+          <!-- Viewports -->
+          <div class="scan-viewport-container">
+            <div class="scan-view-card">
+              <canvas id="canvas-original" class="scan-canvas" width="200" height="200"></canvas>
+              <span class="scan-label">Original High-Res Scan</span>
+            </div>
+
+            <div class="arrow-divider">
+              <span>➔</span>
+              <span class="arrow-tag">Grayscale & Resample</span>
+            </div>
+
+            <div class="scan-view-card">
+              <canvas id="canvas-32x32" class="scan-canvas" width="32" height="32" style="width: 200px; height: 200px;"></canvas>
+              <span class="scan-label">Matrix A₁ (32 × 32 Grayscale)</span>
+            </div>
+          </div>
+
+          <div class="scan-meta-box">
+            <div class="scan-meta-item">
+              <strong>Current Scan</strong>
+              <span id="meta-filename">Loading...</span>
+            </div>
+            <div class="scan-meta-item">
+              <strong>Matrix Dimensions</strong>
+              <span>32 × 32 (1,024 Pixels)</span>
+            </div>
+            <div class="scan-meta-item">
+              <strong>Mean Intensity</strong>
+              <span id="meta-intensity">--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 32x32 Heatmap Inspector Panel -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Interactive Matrix A₁ Heatmap</span>
+            <div class="panel-actions">
+              <span id="heatmap-coord-pill" class="matrix-inspector-pill">Hover pixel to inspect</span>
+              <button id="btn-export-matrix" class="btn btn-secondary btn-sm">💾 Export CSV</button>
+            </div>
+          </div>
+
+          <div class="matrix-container">
+            <div class="heatmap-wrapper">
+              <div id="heatmap-grid" class="matrix-heatmap-grid">
+                <!-- 32x32 = 1024 cells populated dynamically -->
+              </div>
+
+              <div class="matrix-legend">
+                <span>0 (Black / Low Density)</span>
+                <div class="legend-bar"></div>
+                <span>255 (White / High Bone/Tissue Density)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SECTION 2: Matrix Chain Definition & Pipeline Stages
+         ======================================================== -->
+    <section id="matrix-chain" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">02</span>
+          Medical Processing Matrix Chain Formulation
+        </h2>
+        <div class="panel-actions">
+          <button id="btn-reset-dims" class="btn btn-secondary btn-sm">↺ Reset Standard Dims</button>
+        </div>
+      </div>
+      <p class="section-desc">
+        The multi-stage image processing pipeline uses 4 compatible matrices: Image Matrix A₁, Feature Extraction Filter A₂, Dimensionality Reduction A₃, and Classifier Projection A₄.
+      </p>
+
+      <div class="chain-pipeline">
+        <div class="pipeline-node">
+          <span class="pipeline-badge">Input Image</span>
+          <span class="pipeline-name">Matrix A₁</span>
+          <span class="pipeline-dims" id="dim-badge-a1">32 × 32</span>
+          <span class="pipeline-desc">Resized Scan Data</span>
+        </div>
+
+        <div class="pipeline-op">×</div>
+
+        <div class="pipeline-node">
+          <span class="pipeline-badge">Feature Filter</span>
+          <span class="pipeline-name">Matrix A₂</span>
+          <span class="pipeline-dims" id="dim-badge-a2">32 × 16</span>
+          <span class="pipeline-desc">Spatial Convolution Filter</span>
+        </div>
+
+        <div class="pipeline-op">×</div>
+
+        <div class="pipeline-node">
+          <span class="pipeline-badge">Compression</span>
+          <span class="pipeline-name">Matrix A₃</span>
+          <span class="pipeline-dims" id="dim-badge-a3">16 × 8</span>
+          <span class="pipeline-desc">Dimensionality Reduction</span>
+        </div>
+
+        <div class="pipeline-op">×</div>
+
+        <div class="pipeline-node">
+          <span class="pipeline-badge">Classification</span>
+          <span class="pipeline-name">Matrix A₄</span>
+          <span class="pipeline-dims" id="dim-badge-a4">8 × 4</span>
+          <span class="pipeline-desc">Projection & Classifier</span>
+        </div>
+
+        <div class="pipeline-op">=</div>
+
+        <div class="pipeline-node" style="border-color: var(--accent-teal);">
+          <span class="pipeline-badge" style="color: var(--accent-teal);">Final Result</span>
+          <span class="pipeline-name">Output R</span>
+          <span class="pipeline-dims" style="color: var(--accent-teal); background: rgba(16, 185, 129, 0.1);">32 × 4</span>
+          <span class="pipeline-desc">Processed Feature Vector</span>
+        </div>
+      </div>
+
+      <!-- Dimension Configuration Bar -->
+      <div class="panel" style="margin-bottom: 2rem; padding: 1rem 1.5rem;">
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <strong style="font-size: 0.88rem; color: #fff;">Dimension Sequence [p₀, p₁, p₂, p₃, p₄]:</strong>
+            <input type="text" id="dimension-input" value="32, 32, 16, 8, 4" class="select-styled" style="font-family: var(--font-mono); width: 220px;">
+            <button id="btn-apply-dims" class="btn btn-primary btn-sm">Apply & Recalculate</button>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-dim); font-family: var(--font-mono);">
+            Compatibility: Matrix Aᵢ has dimensions p[i-1] × p[i]
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SECTION 3: Dynamic Programming Workspace (CO3)
+         ======================================================== -->
+    <section id="dp-section" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">03</span>
+          CO3: Interval Dynamic Programming Matrix (MCM)
+        </h2>
+        <div class="panel-actions">
+          <button id="btn-animate-dp" class="btn btn-primary btn-sm">▶ Animate DP Steps</button>
+          <button id="btn-reset-dp-anim" class="btn btn-secondary btn-sm">⏹ Reset</button>
+        </div>
+      </div>
+      <p class="section-desc">
+        Interval DP solves subproblems of increasing chain lengths (L = 2, 3, 4). Click any table cell below to view its exact optimization split recurrence and scalar cost calculations.
+      </p>
+
+      <div class="dp-workspace">
+        <!-- DP Table Display -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">DP Cost Matrix dp[i][j] & Optimal Split k</span>
+            <span style="font-size: 0.78rem; color: var(--text-dim);">Green = Optimal Final Cost (dp[1][4])</span>
+          </div>
+
+          <div class="dp-table-container">
+            <table class="dp-table" id="dp-cost-table">
+              <!-- Populated via JavaScript -->
+            </table>
+          </div>
+
+          <!-- Optimal Parenthesization Banner -->
+          <div class="optimal-order-banner">
+            <div>
+              <div class="optimal-order-title">Optimal Evaluation Order (Reconstructed)</div>
+              <div class="optimal-order-formula" id="optimal-order-text">(A₁ × (A₂ × (A₃ × A₄)))</div>
+            </div>
+            <div style="text-align: right;">
+              <span class="badge badge-green" style="font-size: 0.85rem;" id="optimal-cost-badge">Min Cost: 6,656 Mults</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cell Drilldown Inspector -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title" id="drilldown-title">Interval Split Calculation</span>
+            <span class="matrix-inspector-pill" id="drilldown-status">Select Cell</span>
+          </div>
+
+          <div class="dp-drilldown">
+            <div class="formula-box">
+              dp[i][j] = min { dp[i][k] + dp[k+1][j] + p[i-1] × p[k] × p[j] }<br>
+              <small style="color: var(--text-dim);">where i ≤ k &lt; j (Interval Split Position)</small>
+            </div>
+
+            <div style="font-size: 0.82rem; font-weight: 600; color: #fff; margin-top: 0.5rem;">
+              Evaluated Split Candidates (k):
+            </div>
+
+            <div id="step-calc-container" class="step-calc-list">
+              <div style="color: var(--text-dim); font-size: 0.82rem; text-align: center; padding: 2rem 0;">
+                Click any cell in the DP Cost Matrix (e.g. dp[1][4]) to inspect the candidate split calculations.
+              </div>
+            </div>
+
+            <!-- Parse Tree Container -->
+            <div style="margin-top: 1rem; border-top: 1px solid var(--border-subtle); padding-top: 0.85rem;">
+              <div style="font-size: 0.8rem; font-weight: 600; color: var(--text-muted); margin-bottom: 0.5rem;">
+                Optimal Parenthesization Tree:
+              </div>
+              <svg id="svg-tree" style="width: 100%; height: 130px; background: #060911; border-radius: 6px; border: 1px solid var(--border-subtle);">
+                <!-- Dynamically rendered -->
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SECTION 4: Cost Comparison & Computational Reduction
+         ======================================================== -->
+    <section id="comparison" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">04</span>
+          Performance Benchmark & Multiplications Saved
+        </h2>
+      </div>
+      <p class="section-desc">
+        Comparison between conventional left-to-right sequential matrix evaluation versus dynamic programming optimized order.
+      </p>
+
+      <div class="comparison-grid">
+        <!-- Unoptimized Card -->
+        <div class="cost-card unoptimized">
+          <div class="cost-type">Conventional Left-to-Right Order</div>
+          <div class="cost-number" id="cost-unoptimized-val">21,504</div>
+          <div class="cost-unit">Scalar Multiplications Needed</div>
+
+          <div class="cost-breakdown">
+            <div>Step 1: (A₁ × A₂) = 32 × 32 × 16 = <strong>16,384</strong></div>
+            <div>Step 2: ((A₁A₂) × A₃) = 32 × 16 × 8 = <strong>4,096</strong></div>
+            <div>Step 3: (((A₁A₂)A₃) × A₄) = 32 × 8 × 4 = <strong>1,024</strong></div>
+            <div style="color: var(--accent-rose); font-weight: 700; margin-top: 0.4rem;">
+              Total Cost = 16,384 + 4,096 + 1,024 = 21,504
+            </div>
+          </div>
+        </div>
+
+        <!-- Optimized Card -->
+        <div class="cost-card optimized">
+          <div class="cost-type">Optimized MCM Dynamic Programming</div>
+          <div class="cost-number" id="cost-optimized-val" style="color: var(--accent-teal);">6,656</div>
+          <div class="cost-unit">Scalar Multiplications Needed (<span style="color: var(--accent-teal); font-weight: 700;">69.05% Reduction</span>)</div>
+
+          <div class="cost-breakdown">
+            <div>Step 1: (A₃ × A₄) = 16 × 8 × 4 = <strong>512</strong></div>
+            <div>Step 2: (A₂ × (A₃A₄)) = 32 × 16 × 4 = <strong>2,048</strong></div>
+            <div>Step 3: (A₁ × (A₂(A₃A₄))) = 32 × 32 × 4 = <strong>4,096</strong></div>
+            <div style="color: var(--accent-teal); font-weight: 700; margin-top: 0.4rem;">
+              Total Cost = 512 + 2,048 + 4,096 = 6,656
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Efficiency Progress Bar -->
+      <div style="margin-top: 1.5rem; background: var(--bg-card); padding: 1.25rem; border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; font-size: 0.85rem; font-weight: 600;">
+          <span style="color: var(--accent-teal);">✓ Computation Retained (MCM): 30.95% (6,656 ops)</span>
+          <span style="color: #38bdf8;">⚡ Operations Saved: 69.05% (14,848 ops saved)</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-fill-mcm" id="bar-mcm" style="width: 30.95%;">MCM Cost: 6,656</div>
+          <div class="progress-fill-saved" id="bar-saved" style="width: 69.05%;">14,848 Multiplications Saved</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SECTION 5: Network Flow Visualizer (CO4 Edmonds-Karp)
+         ======================================================== -->
+    <section id="network-flow" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">05</span>
+          CO4: Edmonds-Karp Network Flow Pipeline
+        </h2>
+        <div class="panel-actions">
+          <button id="btn-run-flow" class="btn btn-primary btn-sm">▶ Execute Edmonds-Karp BFS</button>
+          <button id="btn-reset-flow" class="btn btn-secondary btn-sm">↺ Reset Network</button>
+        </div>
+      </div>
+      <p class="section-desc">
+        Models clinical medical imaging throughput across parallel processing queues (MRI & X-Ray pipelines) into optimization & output sinks via capacity-constrained network flow.
+      </p>
+
+      <div class="panel">
+        <div class="panel-header">
+          <span class="panel-title">Medical Image Processing Network Architecture</span>
+          <span class="badge badge-green" id="flow-result-badge" style="font-size: 0.85rem;">Max Flow: 16 Units</span>
+        </div>
+
+        <div class="network-canvas-container">
+          <svg id="network-svg" class="network-svg" viewBox="0 0 900 360">
+            <!-- Dynamically populated network graph nodes & edges -->
+          </svg>
+        </div>
+
+        <div class="flow-step-controls">
+          <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <strong style="font-size: 0.85rem; color: #fff;">Network Nodes:</strong>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">
+              0: Source | 1: MRI Proc | 2: X-Ray Proc | 3: Optimization | 4: Output | 5: Sink (T)
+            </span>
+          </div>
+          <div style="font-family: var(--font-mono); font-size: 0.82rem; color: var(--accent-cyan);" id="current-augment-path">
+            Status: Ready
+          </div>
+        </div>
+
+        <div class="flow-log-box" id="flow-log-box">
+          <div class="flow-log-entry">Network initialized with 6 nodes and standard capacity matrix. Click 'Execute Edmonds-Karp BFS' to trace augmenting paths.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SECTION 6: Medical Dataset Browser (100 Scans)
+         ======================================================== -->
+    <section id="dataset" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">06</span>
+          Clinical Dataset Browser (100 Scans)
+        </h2>
+        <div style="font-size: 0.85rem; color: var(--text-muted);">
+          De-identified Medical Records (50 MRI + 50 X-Ray)
+        </div>
+      </div>
+      <p class="section-desc">
+        Click any scan below to instantly load it into the matrix preprocessor and execute the optimization pipeline.
+      </p>
+
+      <div class="gallery-filter-bar">
+        <button class="filter-btn active" data-filter="all">All 100 Scans</button>
+        <button class="filter-btn" data-filter="mri">MRI Scans (50)</button>
+        <button class="filter-btn" data-filter="xray">X-Ray Scans (50)</button>
+        <div style="margin-left: auto; font-size: 0.8rem; color: var(--text-dim);" id="gallery-count-label">
+          Showing 100 items
+        </div>
+      </div>
+
+      <div class="gallery-grid" id="gallery-grid">
+        <!-- Populated via JavaScript -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div style="margin-bottom: 0.5rem; font-weight: 600; color: #cbd5e1;">
+      Medical Image Optimization Platform & Pipeline Accelerator
+    </div>
+    <div>
+      Data Structures & Algorithms (DSA) Course Project | 
+      CO1 Problem Classification • CO3 Dynamic Programming • CO4 Network Flow
+    </div>
+    <div style="margin-top: 0.5rem; font-size: 0.78rem; color: var(--text-dim);">
+      Based on MCMOptimizer.java & Medical_Image_Matrices_MCM.xlsx
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
