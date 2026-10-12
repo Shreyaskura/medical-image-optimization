@@ -607,6 +607,19 @@ body {
   color: var(--text-muted);
 }
 
+.matrix-quick-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.85rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
 .matrix-inspector-pill {
   font-family: var(--font-mono);
   background: rgba(6, 182, 212, 0.12);

@@ -198,6 +198,74 @@ document.addEventListener('DOMContentLoaded', () => {
     updateOptimizedScanResult();
   }
 
+  // Interactive Matrix A1 Brush and Quick Modification State
+  let isMatrixPainting = false;
+  document.addEventListener('mousedown', () => { isMatrixPainting = true; });
+  document.addEventListener('mouseup', () => { isMatrixPainting = false; });
+
+  const btnMatrixInvert = document.getElementById('btn-matrix-invert');
+  const btnMatrixLesion = document.getElementById('btn-matrix-lesion');
+  const btnMatrixNoise = document.getElementById('btn-matrix-noise');
+  const btnMatrixSmooth = document.getElementById('btn-matrix-smooth');
+  const btnMatrixReset = document.getElementById('btn-matrix-reset');
+  const brushIntensity = document.getElementById('brush-intensity');
+  const brushValLabel = document.getElementById('brush-val-label');
+  const operatorSelect = document.getElementById('operator-select');
+
+  if (brushIntensity && brushValLabel) {
+    brushIntensity.addEventListener('input', () => {
+      brushValLabel.textContent = brushIntensity.value;
+    });
+  }
+
+  function updateCanvasesFromMatrixA1() {
+    // 1. Repaint canvas-32x32
+    const imgData32 = ctx32.createImageData(32, 32);
+    let sumIntensity = 0;
+    for (let r = 0; r < 32; r++) {
+      for (let c = 0; c < 32; c++) {
+        const idx = (r * 32 + c) * 4;
+        const v = currentMatrixA1[r][c];
+        imgData32.data[idx] = v;
+        imgData32.data[idx + 1] = v;
+        imgData32.data[idx + 2] = v;
+        imgData32.data[idx + 3] = 255;
+        sumIntensity += v;
+      }
+    }
+    ctx32.putImageData(imgData32, 0, 0);
+
+    // 2. Repaint canvas-original
+    ctxOriginal.imageSmoothingEnabled = false;
+    ctxOriginal.drawImage(canvas32, 0, 0, canvasOriginal.width, canvasOriginal.height);
+
+    // 3. Update mean intensity
+    const meanVal = (sumIntensity / 1024).toFixed(1);
+    if (metaIntensity) {
+      metaIntensity.textContent = `${meanVal} / 255 (${((meanVal / 255) * 100).toFixed(1)}%)`;
+    }
+
+    // 4. Update the optimized scan and matrix R in real-time!
+    updateOptimizedScanResult();
+  }
+
+  function applyBrushToCell(r, c, cellElem) {
+    const val = brushIntensity ? parseInt(brushIntensity.value, 10) : 255;
+    currentMatrixA1[r][c] = val;
+
+    let bg;
+    if (val < 128) {
+      const ratio = val / 128;
+      bg = `rgb(${Math.round(6 * ratio)}, ${Math.round(182 * ratio)}, ${Math.round(212 * ratio)})`;
+    } else {
+      const ratio = (val - 128) / 127;
+      bg = `rgb(${Math.round(6 + (255 - 6) * ratio)}, ${Math.round(182 + (255 - 182) * ratio)}, 255)`;
+    }
+    cellElem.style.backgroundColor = bg;
+    heatmapCoordPill.textContent = `Pixel [Row ${r + 1}, Col ${c + 1}]: Intensity ${val} (${(val / 255).toFixed(2)})`;
+    updateCanvasesFromMatrixA1();
+  }
+
   function renderHeatmapGrid() {
     heatmapGrid.innerHTML = '';
     const fragment = document.createDocumentFragment();
@@ -219,14 +287,95 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         cell.style.backgroundColor = bg;
 
+        cell.addEventListener('mousedown', (e) => {
+          e.preventDefault();
+          applyBrushToCell(r, c, cell);
+        });
+
         cell.addEventListener('mouseenter', () => {
-          heatmapCoordPill.textContent = `Pixel [Row ${r + 1}, Col ${c + 1}]: Intensity ${val} (${(val / 255).toFixed(2)})`;
+          heatmapCoordPill.textContent = `Pixel [Row ${r + 1}, Col ${c + 1}]: Intensity ${currentMatrixA1[r][c]} (${(currentMatrixA1[r][c] / 255).toFixed(2)})`;
+          if (isMatrixPainting) {
+            applyBrushToCell(r, c, cell);
+          }
         });
 
         fragment.appendChild(cell);
       }
     }
     heatmapGrid.appendChild(fragment);
+  }
+
+  // Quick Matrix Action Listeners
+  if (btnMatrixInvert) {
+    btnMatrixInvert.addEventListener('click', () => {
+      for (let r = 0; r < 32; r++) {
+        for (let c = 0; c < 32; c++) {
+          currentMatrixA1[r][c] = 255 - currentMatrixA1[r][c];
+        }
+      }
+      renderHeatmapGrid();
+      updateCanvasesFromMatrixA1();
+    });
+  }
+
+  if (btnMatrixLesion) {
+    btnMatrixLesion.addEventListener('click', () => {
+      const centerR = 12 + Math.floor(Math.random() * 8);
+      const centerC = 12 + Math.floor(Math.random() * 8);
+      for (let r = 0; r < 32; r++) {
+        for (let c = 0; c < 32; c++) {
+          const d = Math.hypot(r - centerR, c - centerC);
+          if (d < 5) {
+            const boost = Math.round(210 * (1 - d / 5));
+            currentMatrixA1[r][c] = Math.min(255, currentMatrixA1[r][c] + boost);
+          }
+        }
+      }
+      renderHeatmapGrid();
+      updateCanvasesFromMatrixA1();
+    });
+  }
+
+  if (btnMatrixNoise) {
+    btnMatrixNoise.addEventListener('click', () => {
+      for (let r = 0; r < 32; r++) {
+        for (let c = 0; c < 32; c++) {
+          const noise = (Math.random() - 0.5) * 70;
+          currentMatrixA1[r][c] = Math.max(0, Math.min(255, Math.round(currentMatrixA1[r][c] + noise)));
+        }
+      }
+      renderHeatmapGrid();
+      updateCanvasesFromMatrixA1();
+    });
+  }
+
+  if (btnMatrixSmooth) {
+    btnMatrixSmooth.addEventListener('click', () => {
+      const copy = currentMatrixA1.map(row => [...row]);
+      for (let r = 0; r < 32; r++) {
+        for (let c = 0; c < 32; c++) {
+          let sum = 0, count = 0;
+          for (let dr = -1; dr <= 1; dr++) {
+            for (let dc = -1; dc <= 1; dc++) {
+              const nr = r + dr, nc = c + dc;
+              if (nr >= 0 && nr < 32 && nc >= 0 && nc < 32) {
+                sum += copy[nr][nc];
+                count++;
+              }
+            }
+          }
+          currentMatrixA1[r][c] = Math.round(sum / count);
+        }
+      }
+      renderHeatmapGrid();
+      updateCanvasesFromMatrixA1();
+    });
+  }
+
+  if (btnMatrixReset) {
+    btnMatrixReset.addEventListener('click', () => {
+      loadMedicalScan(modalitySelect.value, scanSelect.value);
+    });
   }
 
   // Export Matrix A1 as CSV
@@ -451,7 +600,22 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDPTable();
     renderParseTree(res.order);
     inspectDPCell(1, currentDims.length - 1);
+    updateDimensionBadges();
     updateOptimizedScanResult();
+  }
+
+  function updateDimensionBadges() {
+    const b1 = document.getElementById('dim-badge-a1');
+    const b2 = document.getElementById('dim-badge-a2');
+    const b3 = document.getElementById('dim-badge-a3');
+    const b4 = document.getElementById('dim-badge-a4');
+    const bOut = document.getElementById('dim-badge-out');
+
+    if (b1 && currentDims.length > 1) b1.textContent = `${currentDims[0]} × ${currentDims[1]}`;
+    if (b2 && currentDims.length > 2) b2.textContent = `${currentDims[1]} × ${currentDims[2]}`;
+    if (b3 && currentDims.length > 3) b3.textContent = `${currentDims[2]} × ${currentDims[3]}`;
+    if (b4 && currentDims.length > 4) b4.textContent = `${currentDims[3]} × ${currentDims[4]}`;
+    if (bOut && currentDims.length > 1) bOut.textContent = `${currentDims[0]} × ${currentDims[currentDims.length - 1]}`;
   }
 
   // Animation of Interval DP
@@ -939,11 +1103,27 @@ document.addEventListener('DOMContentLoaded', () => {
         // Dynamic range stretch from mean
         const contrastVal = meanVal + (center - meanVal) * contrastMult;
 
-        // Fused optimized pixel
-        let optVal = contrastVal + laplacian * (sharpMult * 0.45);
+        // Apply operator selected in dropdown or default Laplacian
+        const op = (operatorSelect && operatorSelect.value) ? operatorSelect.value : 'laplacian';
+        let optVal = contrastVal;
+
+        if (op === 'laplacian') {
+          optVal = contrastVal + laplacian * (sharpMult * 0.5);
+        } else if (op === 'contrast') {
+          optVal = meanVal + (center - meanVal) * (contrastMult * 1.8);
+        } else if (op === 'sobel') {
+          const gx = right - left;
+          const gy = down - up;
+          const grad = Math.sqrt(gx * gx + gy * gy);
+          optVal = grad * (sharpMult * 1.7) + contrastVal * 0.35;
+        } else if (op === 'gaussian') {
+          optVal = (4 * center + 2 * (up + down + left + right)) / 12;
+        } else if (op === 'inverted') {
+          optVal = 255 - contrastVal + laplacian * 0.25;
+        }
 
         // Background noise gate: suppress near-black air artifacts
-        if (center < 16) {
+        if (center < 16 && op !== 'inverted') {
           optVal = center * 0.4;
         }
 
@@ -1170,6 +1350,13 @@ document.addEventListener('DOMContentLoaded', () => {
       cardRawView.style.display = 'none';
       cardOptView.style.display = 'flex';
       cardArrowView.style.display = 'none';
+    });
+  }
+
+  // Operator select change
+  if (operatorSelect) {
+    operatorSelect.addEventListener('change', () => {
+      updateOptimizedScanResult();
     });
   }
 
