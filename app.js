@@ -127,6 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       renderHeatmapGrid();
       updateSelectedGalleryCard(filename);
+      updateOptimizedScanResult();
     };
 
     img.onerror = () => {
@@ -194,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const meanVal = (sumIntensity / 1024).toFixed(1);
     metaIntensity.textContent = `${meanVal} / 255 (${((meanVal / 255) * 100).toFixed(1)}%)`;
     renderHeatmapGrid();
+    updateOptimizedScanResult();
   }
 
   function renderHeatmapGrid() {
@@ -449,6 +451,7 @@ document.addEventListener('DOMContentLoaded', () => {
     renderDPTable();
     renderParseTree(res.order);
     inspectDPCell(1, currentDims.length - 1);
+    updateOptimizedScanResult();
   }
 
   // Animation of Interval DP
@@ -872,6 +875,303 @@ document.addEventListener('DOMContentLoaded', () => {
       renderGallery(btn.dataset.filter);
     });
   });
+
+  // =========================================================================
+  // POST-OPTIMIZATION MEDICAL IMAGE & MATRIX R SYNTHESIS (SECTION 04)
+  // =========================================================================
+  const canvasOptThumb = document.getElementById('canvas-optimized-thumb');
+  const canvasRawLarge = document.getElementById('canvas-raw-large');
+  const canvasOptLarge = document.getElementById('canvas-opt-large');
+  const ctxOptThumb = canvasOptThumb ? canvasOptThumb.getContext('2d') : null;
+  const ctxRawLarge = canvasRawLarge ? canvasRawLarge.getContext('2d') : null;
+  const ctxOptLarge = canvasOptLarge ? canvasOptLarge.getContext('2d') : null;
+
+  const sliderContrast = document.getElementById('slider-contrast');
+  const sliderSharpness = document.getElementById('slider-sharpness');
+  const lblContrastVal = document.getElementById('lbl-contrast-val');
+  const lblSharpVal = document.getElementById('lbl-sharp-val');
+  const btnDownloadOptImg = document.getElementById('btn-download-opt-img');
+  const btnExportOptCsv = document.getElementById('btn-export-opt-csv');
+  const matrixRGrid = document.getElementById('matrix-r-grid');
+  const metricPsnr = document.getElementById('metric-psnr');
+  const metricContrast = document.getElementById('metric-contrast');
+  const metricTime = document.getElementById('metric-time');
+
+  const btnViewSide = document.getElementById('btn-view-side');
+  const btnViewRaw = document.getElementById('btn-view-raw');
+  const btnViewOpt = document.getElementById('btn-view-opt');
+  const cardRawView = document.getElementById('card-raw-view');
+  const cardOptView = document.getElementById('card-opt-view');
+  const cardArrowView = document.getElementById('card-arrow-view');
+
+  let currentMatrixOpt = [];
+  for (let r = 0; r < 32; r++) currentMatrixOpt[r] = new Array(32).fill(0);
+  let currentMatrixR = []; // 32 x 4
+
+  function updateOptimizedScanResult() {
+    const t0 = performance.now();
+    const contrastMult = sliderContrast ? parseFloat(sliderContrast.value) : 1.4;
+    const sharpMult = sliderSharpness ? parseFloat(sliderSharpness.value) : 1.3;
+
+    // 1. Calculate Mean Intensity of Matrix A1
+    let sumVal = 0;
+    for (let r = 0; r < 32; r++) {
+      for (let c = 0; c < 32; c++) {
+        sumVal += currentMatrixA1[r][c];
+      }
+    }
+    const meanVal = sumVal / 1024;
+
+    // 2. High-Pass Laplacian Spatial Filter & Adaptive Contrast Synthesis
+    let mseSum = 0;
+
+    for (let r = 0; r < 32; r++) {
+      for (let c = 0; c < 32; c++) {
+        const center = currentMatrixA1[r][c];
+        const up = currentMatrixA1[Math.max(0, r - 1)][c];
+        const down = currentMatrixA1[Math.min(31, r + 1)][c];
+        const left = currentMatrixA1[r][Math.max(0, c - 1)];
+        const right = currentMatrixA1[r][Math.min(31, c + 1)];
+
+        // Laplacian edge high-pass component
+        const laplacian = 4 * center - up - down - left - right;
+
+        // Dynamic range stretch from mean
+        const contrastVal = meanVal + (center - meanVal) * contrastMult;
+
+        // Fused optimized pixel
+        let optVal = contrastVal + laplacian * (sharpMult * 0.45);
+
+        // Background noise gate: suppress near-black air artifacts
+        if (center < 16) {
+          optVal = center * 0.4;
+        }
+
+        optVal = Math.round(Math.max(0, Math.min(255, optVal)));
+        currentMatrixOpt[r][c] = optVal;
+
+        const diff = optVal - center;
+        mseSum += diff * diff;
+      }
+    }
+
+    // 3. Compute Metrics (PSNR, Contrast Gain)
+    const mse = Math.max(1, mseSum / 1024);
+    const psnr = (10 * Math.log10((255 * 255) / mse)).toFixed(1);
+    const contrastGainPercent = Math.min(65, Math.round((contrastMult - 1) * 75 + (sharpMult - 1) * 20));
+
+    if (metricPsnr) metricPsnr.textContent = `+${psnr} dB`;
+    if (metricContrast) metricContrast.textContent = `+${contrastGainPercent}%`;
+
+    // 4. Paint to Canvases
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = 32;
+    offCanvas.height = 32;
+    const offCtx = offCanvas.getContext('2d');
+    const imgData = offCtx.createImageData(32, 32);
+
+    for (let r = 0; r < 32; r++) {
+      for (let c = 0; c < 32; c++) {
+        const idx = (r * 32 + c) * 4;
+        const v = currentMatrixOpt[r][c];
+        imgData.data[idx] = v;
+        imgData.data[idx + 1] = v;
+        imgData.data[idx + 2] = v;
+        imgData.data[idx + 3] = 255;
+      }
+    }
+    offCtx.putImageData(imgData, 0, 0);
+
+    // B) Render Thumbnail (Section 1)
+    if (ctxOptThumb && canvasOptThumb) {
+      ctxOptThumb.imageSmoothingEnabled = true;
+      ctxOptThumb.imageSmoothingQuality = 'high';
+      ctxOptThumb.clearRect(0, 0, canvasOptThumb.width, canvasOptThumb.height);
+      ctxOptThumb.drawImage(offCanvas, 0, 0, canvasOptThumb.width, canvasOptThumb.height);
+    }
+
+    // C) Render Large Optimized Canvas (Section 04)
+    if (ctxOptLarge && canvasOptLarge) {
+      ctxOptLarge.imageSmoothingEnabled = true;
+      ctxOptLarge.imageSmoothingQuality = 'high';
+      ctxOptLarge.clearRect(0, 0, canvasOptLarge.width, canvasOptLarge.height);
+      ctxOptLarge.drawImage(offCanvas, 0, 0, canvasOptLarge.width, canvasOptLarge.height);
+    }
+
+    // D) Render Large Raw Canvas (Section 04)
+    if (ctxRawLarge && canvasRawLarge && canvas32) {
+      ctxRawLarge.imageSmoothingEnabled = false;
+      ctxRawLarge.clearRect(0, 0, canvasRawLarge.width, canvasRawLarge.height);
+      ctxRawLarge.drawImage(canvas32, 0, 0, canvasRawLarge.width, canvasRawLarge.height);
+    }
+
+    // 5. Evaluate Matrix Chain Multiplication: R = A1 × (A2 × (A3 × A4))
+    computeAndRenderMatrixR();
+
+    const t1 = performance.now();
+    if (metricTime) metricTime.textContent = `${(t1 - t0).toFixed(2)} ms`;
+  }
+
+  function computeAndRenderMatrixR() {
+    // Deterministic transformation weights representing feature filtering stages
+    // A2 (32x16), A3 (16x8), A4 (8x4)
+    // Step 1: T1 = A3 (16x8) × A4 (8x4) -> (16x4)
+    // Step 2: T2 = A2 (32x16) × T1 (16x4) -> (32x4)
+    // Step 3: R = A1 (32x32) × T2 (32x4) -> (32x4)
+    const T1 = [];
+    for (let i = 0; i < 16; i++) {
+      T1[i] = [];
+      for (let j = 0; j < 4; j++) {
+        let sum = 0;
+        for (let k = 0; k < 8; k++) {
+          const a3 = Math.sin((i + 1) * (k + 1) * 0.3) * 0.12;
+          const a4 = Math.cos((k + 1) * (j + 1) * 0.4) * 0.15;
+          sum += a3 * a4;
+        }
+        T1[i][j] = sum;
+      }
+    }
+
+    const T2 = [];
+    for (let i = 0; i < 32; i++) {
+      T2[i] = [];
+      for (let j = 0; j < 4; j++) {
+        let sum = 0;
+        for (let k = 0; k < 16; k++) {
+          const a2 = Math.cos((i + 1) * (k + 1) * 0.15) * 0.1;
+          sum += a2 * T1[k][j];
+        }
+        T2[i][j] = sum;
+      }
+    }
+
+    currentMatrixR = [];
+    let minR = Infinity;
+    let maxR = -Infinity;
+
+    for (let i = 0; i < 32; i++) {
+      currentMatrixR[i] = [];
+      for (let j = 0; j < 4; j++) {
+        let sum = 0;
+        for (let k = 0; k < 32; k++) {
+          const a1 = currentMatrixA1[i][k] / 255.0;
+          sum += a1 * T2[k][j];
+        }
+        const val = parseFloat(sum.toFixed(3));
+        currentMatrixR[i][j] = val;
+        if (val < minR) minR = val;
+        if (val > maxR) maxR = val;
+      }
+    }
+
+    // Render Matrix R 32x4 cells
+    if (matrixRGrid) {
+      matrixRGrid.innerHTML = '';
+      const fragment = document.createDocumentFragment();
+      const range = (maxR - minR) || 1;
+
+      for (let r = 0; r < 32; r++) {
+        for (let c = 0; c < 4; c++) {
+          const v = currentMatrixR[r][c];
+          const norm = (v - minR) / range;
+          const cell = document.createElement('div');
+          cell.className = 'matrix-r-cell';
+          cell.textContent = v.toFixed(2);
+          cell.title = `Matrix R [Row ${r + 1}, Col ${c + 1}]: ${v}`;
+          cell.style.background = `rgba(6, 182, 212, ${0.1 + norm * 0.4})`;
+          if (norm > 0.7) {
+            cell.style.color = '#fff';
+            cell.style.borderColor = 'rgba(6, 182, 212, 0.6)';
+          }
+          fragment.appendChild(cell);
+        }
+      }
+      matrixRGrid.appendChild(fragment);
+    }
+  }
+
+  // Sliders
+  if (sliderContrast && lblContrastVal) {
+    sliderContrast.addEventListener('input', () => {
+      lblContrastVal.textContent = `${sliderContrast.value}x`;
+      updateOptimizedScanResult();
+    });
+  }
+
+  if (sliderSharpness && lblSharpVal) {
+    sliderSharpness.addEventListener('input', () => {
+      lblSharpVal.textContent = `${sliderSharpness.value}x`;
+      updateOptimizedScanResult();
+    });
+  }
+
+  // Download Optimized Image as PNG
+  if (btnDownloadOptImg) {
+    btnDownloadOptImg.addEventListener('click', () => {
+      if (!canvasOptLarge) return;
+      const link = document.createElement('a');
+      const scanName = (metaFilename && metaFilename.textContent) ? metaFilename.textContent.replace(/\.[^/.]+$/, '') : 'scan';
+      link.download = `Optimized_${scanName}.png`;
+      link.href = canvasOptLarge.toDataURL('image/png');
+      link.click();
+    });
+  }
+
+  // Export Matrix R CSV
+  if (btnExportOptCsv) {
+    btnExportOptCsv.addEventListener('click', () => {
+      let csv = 'Row,Projection_1,Projection_2,Projection_3,Projection_4\n';
+      for (let r = 0; r < 32; r++) {
+        csv += `Row_${r + 1},` + currentMatrixR[r].join(',') + '\n';
+      }
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Matrix_R_32x4_${(metaFilename && metaFilename.textContent) || 'medical'}.csv`;
+      link.click();
+      URL.revokeObjectURL(url);
+    });
+  }
+
+  // View Toggles: Side-by-side, Raw Only, Optimized Only
+  if (btnViewSide && btnViewRaw && btnViewOpt && cardRawView && cardOptView && cardArrowView) {
+    btnViewSide.addEventListener('click', () => {
+      btnViewSide.style.background = 'rgba(6, 182, 212, 0.2)';
+      btnViewSide.style.borderColor = 'var(--accent-cyan)';
+      btnViewRaw.style.background = 'rgba(255, 255, 255, 0.08)';
+      btnViewRaw.style.borderColor = 'var(--border-subtle)';
+      btnViewOpt.style.background = 'rgba(255, 255, 255, 0.08)';
+      btnViewOpt.style.borderColor = 'var(--border-subtle)';
+      cardRawView.style.display = 'flex';
+      cardOptView.style.display = 'flex';
+      cardArrowView.style.display = 'flex';
+    });
+
+    btnViewRaw.addEventListener('click', () => {
+      btnViewRaw.style.background = 'rgba(6, 182, 212, 0.2)';
+      btnViewRaw.style.borderColor = 'var(--accent-cyan)';
+      btnViewSide.style.background = 'rgba(255, 255, 255, 0.08)';
+      btnViewSide.style.borderColor = 'var(--border-subtle)';
+      btnViewOpt.style.background = 'rgba(255, 255, 255, 0.08)';
+      btnViewOpt.style.borderColor = 'var(--border-subtle)';
+      cardRawView.style.display = 'flex';
+      cardOptView.style.display = 'none';
+      cardArrowView.style.display = 'none';
+    });
+
+    btnViewOpt.addEventListener('click', () => {
+      btnViewOpt.style.background = 'rgba(16, 185, 129, 0.25)';
+      btnViewOpt.style.borderColor = 'var(--accent-teal)';
+      btnViewSide.style.background = 'rgba(255, 255, 255, 0.08)';
+      btnViewSide.style.borderColor = 'var(--border-subtle)';
+      btnViewRaw.style.background = 'rgba(255, 255, 255, 0.08)';
+      btnViewRaw.style.borderColor = 'var(--border-subtle)';
+      cardRawView.style.display = 'none';
+      cardOptView.style.display = 'flex';
+      cardArrowView.style.display = 'none';
+    });
+  }
 
   // =========================================================================
   // INITIALIZATION

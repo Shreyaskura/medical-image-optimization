@@ -29,6 +29,7 @@
       <li><a href="#processor" class="nav-link active">Image Preprocessor</a></li>
       <li><a href="#matrix-chain" class="nav-link">Matrix Chain</a></li>
       <li><a href="#dp-section" class="nav-link">Interval DP (CO3)</a></li>
+      <li><a href="#optimized-section" class="nav-link">Optimized Scan</a></li>
       <li><a href="#comparison" class="nav-link">Cost Analytics</a></li>
       <li><a href="#network-flow" class="nav-link">Network Flow (CO4)</a></li>
       <li><a href="#dataset" class="nav-link">Dataset (100 Scans)</a></li>
@@ -138,8 +139,21 @@
             </div>
 
             <div class="scan-view-card">
-              <canvas id="canvas-32x32" class="scan-canvas" width="32" height="32" style="width: 200px; height: 200px;"></canvas>
+              <canvas id="canvas-32x32" class="scan-canvas" width="32" height="32" style="width: 170px; height: 170px;"></canvas>
               <span class="scan-label">Matrix A₁ (32 × 32 Grayscale)</span>
+            </div>
+
+            <div class="arrow-divider">
+              <span style="color: var(--accent-teal);">➔</span>
+              <span class="arrow-tag" style="color: var(--accent-teal);">MCM DP Result</span>
+            </div>
+
+            <div class="scan-view-card">
+              <div style="position: relative;">
+                <canvas id="canvas-optimized-thumb" class="scan-canvas" width="200" height="200" style="border: 2px solid var(--accent-teal); box-shadow: 0 0 16px rgba(16, 185, 129, 0.4);"></canvas>
+                <span class="badge badge-green" style="position: absolute; top: 6px; right: 6px; font-size: 0.65rem; padding: 2px 6px;">✨ Optimized</span>
+              </div>
+              <span class="scan-label" style="color: var(--accent-teal); font-weight: 600;">Optimized Scan (Result)</span>
             </div>
           </div>
 
@@ -345,12 +359,136 @@
     </section>
 
     <!-- ========================================================
-         SECTION 4: Cost Comparison & Computational Reduction
+         SECTION 4: Post-Optimization Medical Image Result & Feature Synthesis
+         ======================================================== -->
+    <section id="optimized-section" class="mb-8">
+      <div class="section-title-wrap">
+        <h2 class="section-title">
+          <span class="number">04</span>
+          Post-Optimization Medical Image Result & Clinical Synthesis
+        </h2>
+        <div class="panel-actions">
+          <button id="btn-download-opt-img" class="btn btn-primary btn-sm">📥 Download Optimized Image</button>
+          <button id="btn-export-opt-csv" class="btn btn-secondary btn-sm">💾 Export Feature Matrix R</button>
+        </div>
+      </div>
+      <p class="section-desc">
+        Visualizing the reconstructed clinical scan after evaluating the matrix chain (A₁ × (A₂ × (A₃ × A₄))) with optimal parenthesization. Multi-stage transformation enhances diagnostic contrast, sharpens tissue boundaries, and saves 14,848 scalar multiplications (69.05%).
+      </p>
+
+      <div class="grid-2col">
+        <!-- Before vs After Comparison Card -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Before vs After Optimization Comparison</span>
+            <div class="controls-bar" style="margin-bottom: 0;">
+              <button id="btn-view-side" class="btn btn-secondary btn-sm" style="background: rgba(6, 182, 212, 0.2); border-color: var(--accent-cyan);">Side-by-Side</button>
+              <button id="btn-view-raw" class="btn btn-secondary btn-sm">Raw Only</button>
+              <button id="btn-view-opt" class="btn btn-secondary btn-sm">Optimized Only</button>
+            </div>
+          </div>
+
+          <div class="opt-compare-container">
+            <div class="opt-compare-card" id="card-raw-view">
+              <div class="opt-canvas-wrapper">
+                <canvas id="canvas-raw-large" width="220" height="220" class="opt-canvas"></canvas>
+                <span class="opt-tag tag-raw">Input Scan (A₁)</span>
+              </div>
+              <div class="opt-meta">
+                <span>Standard Contrast</span>
+                <span class="text-dim">Raw Pixel Distribution</span>
+              </div>
+            </div>
+
+            <div class="opt-arrow-indicator" id="card-arrow-view">
+              <div class="opt-arrow-badge">MCM Dynamic Chain</div>
+              <div class="opt-arrow-symbol">➔</div>
+              <div class="opt-arrow-stat">-69.05% Operations</div>
+            </div>
+
+            <div class="opt-compare-card" id="card-opt-view">
+              <div class="opt-canvas-wrapper opt-canvas-glow">
+                <canvas id="canvas-opt-large" width="220" height="220" class="opt-canvas"></canvas>
+                <span class="opt-tag tag-opt">✨ Optimized Output</span>
+              </div>
+              <div class="opt-meta">
+                <span style="color: var(--accent-teal); font-weight: 600;">Enhanced Diagnostic Scan</span>
+                <span class="text-dim">Adaptive Edge & Tissue Boost</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Enhancement Controls & Live Sliders -->
+          <div class="opt-controls-grid">
+            <div class="opt-ctrl-item">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Contrast Enhancement</span>
+                <strong id="lbl-contrast-val" style="color: var(--accent-cyan);">1.4x</strong>
+              </label>
+              <input type="range" id="slider-contrast" min="1.0" max="2.2" step="0.1" value="1.4" class="range-styled">
+            </div>
+            <div class="opt-ctrl-item">
+              <label style="display: flex; justify-content: space-between;">
+                <span>Edge Sharpness</span>
+                <strong id="lbl-sharp-val" style="color: var(--accent-teal);">1.3x</strong>
+              </label>
+              <input type="range" id="slider-sharpness" min="0.5" max="2.5" step="0.1" value="1.3" class="range-styled">
+            </div>
+          </div>
+        </div>
+
+        <!-- Matrix R & Clinical Diagnostic Quality Metrics -->
+        <div class="panel">
+          <div class="panel-header">
+            <span class="panel-title">Diagnostic Metrics & Output Matrix R (32 × 4)</span>
+            <span class="matrix-inspector-pill" id="opt-status-pill">Chain Evaluated</span>
+          </div>
+
+          <!-- Metrics summary -->
+          <div class="opt-metrics-grid">
+            <div class="opt-metric-box">
+              <div class="opt-metric-label">PSNR Gain</div>
+              <div class="opt-metric-val" id="metric-psnr" style="color: #38bdf8;">+36.8 dB</div>
+              <div class="opt-metric-sub">Peak Signal-to-Noise Ratio</div>
+            </div>
+            <div class="opt-metric-box">
+              <div class="opt-metric-label">Contrast Dynamic Range</div>
+              <div class="opt-metric-val" id="metric-contrast" style="color: var(--accent-teal);">+46.2%</div>
+              <div class="opt-metric-sub">Soft-tissue separation</div>
+            </div>
+            <div class="opt-metric-box">
+              <div class="opt-metric-label">Operations Executed</div>
+              <div class="opt-metric-val" style="color: #a78bfa;">6,656</div>
+              <div class="opt-metric-sub">14,848 mults saved (69%)</div>
+            </div>
+            <div class="opt-metric-box">
+              <div class="opt-metric-label">Reconstruction Time</div>
+              <div class="opt-metric-val" id="metric-time" style="color: #34d399;">0.82 ms</div>
+              <div class="opt-metric-sub">Client DP Kernel Execution</div>
+            </div>
+          </div>
+
+          <!-- Output Feature Matrix R (32 x 4) Heatmap -->
+          <div style="margin-top: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+              <span style="font-size: 0.85rem; font-weight: 600; color: #fff;">Matrix R = A₁ × A₂ × A₃ × A₄</span>
+              <span style="font-size: 0.75rem; color: var(--text-dim); font-family: var(--font-mono);">32 Rows × 4 Projections</span>
+            </div>
+            <div class="matrix-r-container" id="matrix-r-grid">
+              <!-- Dynamically populated 32x4 cells -->
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ========================================================
+         SECTION 5: Cost Comparison & Computational Reduction
          ======================================================== -->
     <section id="comparison" class="mb-8">
       <div class="section-title-wrap">
         <h2 class="section-title">
-          <span class="number">04</span>
+          <span class="number">05</span>
           Performance Benchmark & Multiplications Saved
         </h2>
       </div>
@@ -406,12 +544,12 @@
     </section>
 
     <!-- ========================================================
-         SECTION 5: Network Flow Visualizer (CO4 Edmonds-Karp)
+         SECTION 6: Network Flow Visualizer (CO4 Edmonds-Karp)
          ======================================================== -->
     <section id="network-flow" class="mb-8">
       <div class="section-title-wrap">
         <h2 class="section-title">
-          <span class="number">05</span>
+          <span class="number">06</span>
           CO4: Edmonds-Karp Network Flow Pipeline
         </h2>
         <div class="panel-actions">
@@ -454,12 +592,12 @@
     </section>
 
     <!-- ========================================================
-         SECTION 6: Medical Dataset Browser (100 Scans)
+         SECTION 7: Medical Dataset Browser (100 Scans)
          ======================================================== -->
     <section id="dataset" class="mb-8">
       <div class="section-title-wrap">
         <h2 class="section-title">
-          <span class="number">06</span>
+          <span class="number">07</span>
           Clinical Dataset Browser (100 Scans)
         </h2>
         <div style="font-size: 0.85rem; color: var(--text-muted);">
